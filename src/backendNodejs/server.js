@@ -222,6 +222,14 @@ app.post("/book-meeting", async (req, res) => {
       .json({ status: "error", reason: "Missing required fields" });
   }
 
+  // Check if start time is before end time
+  if (new Date(startTime) >= new Date(endTime)) {
+    return res.status(400).json({
+      status: "error",
+      reason: "Start time must be before end time",
+    });
+  }
+
   try {
     // 1. Retrieve user from database
     const user = await User.findOne({ email: targetEmail });
