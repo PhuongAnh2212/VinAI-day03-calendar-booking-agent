@@ -115,7 +115,7 @@ app.get("/oauth2callback", async (req, res) => {
 // 5. Routes: Booking Logic API
 // ==========================================
 app.post("/book-meeting", async (req, res) => {
-  const { targetEmail, startTime, endTime } = req.body;
+  const { targetEmail, startTime, endTime, meetingName } = req.body;
 
   if (!targetEmail || !startTime || !endTime) {
     return res
@@ -164,7 +164,7 @@ app.post("/book-meeting", async (req, res) => {
 
     // 5. If FREE: Create the calendar event
     const event = {
-      summary: "Scheduled Meeting via Agent",
+      summary: meetingName || "Scheduled Meeting via Agent",
       description: "Auto-generated meeting.",
       start: { dateTime: startTime },
       end: { dateTime: endTime },
