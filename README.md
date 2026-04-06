@@ -1,4 +1,4 @@
-# VinAI-day03-calendar-booking-agent
+# VinAI Lab Work Day 03: Calendar Booking Agent
 
 ## Preview
 
