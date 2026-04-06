@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap');
+
+:root {
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F8F9FA;
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #666666;
+  --color-border: #E8E8E8;
+  
+  --gradient-baby-blue: linear-gradient(160deg, #F2FAFF 0%, #DCEFFF 45%, #C9E3FF 100%);
+  --gradient-blue: linear-gradient(135deg, #E3F2FD 0%, #B3E5FC 100%);
+  --gradient-pink: linear-gradient(135deg, #FCE4EC 0%, #F8BBD0 100%);
+  --gradient-green: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  --gradient-neutral: linear-gradient(135deg, #F5F5F5 0%, #EEEEEE 100%);
+  
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-body);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.app-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gradient-baby-blue);
+  position: relative;
+}
+
+.app-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  height: 100%;
+  padding: var(--spacing-2xl) var(--spacing-lg);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app-content {
+    max-width: 100%;
+    padding: var(--spacing-lg) var(--spacing-md);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* Text selection */
+::selection {
+  background-color: #E3F2FD;
+  color: var(--color-text-primary);
+}
