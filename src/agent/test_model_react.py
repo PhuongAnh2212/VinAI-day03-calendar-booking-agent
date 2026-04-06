@@ -145,7 +145,34 @@ my_tools = [
 ]
 
 # ==========================================
-# 2. AUTOMATED BENCHMARK EXECUTION
+# 2. REUSABLE AGENT HELPERS (FOR API)
+# ==========================================
+def _format_history(history):
+    if not history:
+        return ""
+    lines = ["Conversation history:"]
+    for msg in history:
+        role = str(msg.get("role", "")).strip() or "user"
+        content = str(msg.get("content", "")).strip()
+        if content:
+            lines.append(f"{role.capitalize()}: {content}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_agent(model_name: str = "llama3.2:latest", temperature: float = 0.1, max_steps: int = 5) -> ReActAgent:
+    llm = OllamaProvider(model_name=model_name, temperature=temperature)
+    return ReActAgent(llm=llm, tools=my_tools, max_steps=max_steps)
+
+
+def run_agent_message(user_message: str, history=None, model_name: str = "llama3.2:latest", temperature: float = 0.1, max_steps: int = 5) -> str:
+    agent = build_agent(model_name=model_name, temperature=temperature, max_steps=max_steps)
+    history_block = _format_history(history)
+    prompt = f"{history_block}User: {user_message}".strip()
+    return agent.run(prompt)
+
+# ==========================================
+# 3. AUTOMATED BENCHMARK EXECUTION
 # ==========================================
 def run_benchmarks():
     # 1. Load the JSON file containing test cases
@@ -162,7 +189,7 @@ def run_benchmarks():
     # 2. Initialize LLM and Agent
     print("Initializing model...")
     # Tip: Keep temperature low (0.1) for better ReAct format adherence
-    llm = OllamaProvider(model_name="gemma3:1b", temperature=0.1) 
+    llm = OllamaProvider(model_name="llama3.2:latest", temperature=0.1) 
     agent = ReActAgent(llm=llm, tools=my_tools, max_steps=5)
     
     print(f"Successfully loaded {len(benchmarks)} test cases. Starting evaluation...\n")
