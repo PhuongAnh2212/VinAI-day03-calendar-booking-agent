@@ -21,6 +21,7 @@ class BookingRequest(BaseModel):
     start_time: str
     end_time: str
     summary: Optional[str] = "Họp đặt bởi AI Agent"
+    target_email: Optional[str] = None
 
 
 # --- CORE LOGIC ---
@@ -61,26 +62,39 @@ def get_calendar_service():
     return build('calendar', 'v3', credentials=creds)
 
 
-def check_availability_logic(service, start_time, end_time):
+def check_availability_logic(service, start_time, end_time, target_email=None):
+    items = [{"id": "primary"}, {"id": USER_B}]
+    if target_email:
+        items.append({"id": target_email})
+        
     body = {
         "timeMin": start_time,
         "timeMax": end_time,
-        "items": [{"id": "primary"}, {"id": USER_B}]
+        "items": items
     }
     res = service.freebusy().query(body=body).execute()
-    for user_id in ["primary", USER_B]:
-        if res['calendars'][user_id]['busy']:
+    
+    check_ids = ["primary", USER_B]
+    if target_email:
+        check_ids.append(target_email)
+        
+    for user_id in check_ids:
+        if res['calendars'].get(user_id) and res['calendars'][user_id]['busy']:
             return False
     return True
 
 
-def create_event_with_invite(service, start_time, end_time, summary):
+def create_event_with_invite(service, start_time, end_time, summary, target_email=None):
+    attendees = [{'email': USER_B}]
+    if target_email:
+        attendees.append({'email': target_email})
+        
     event_body = {
         'summary': summary,
         'description': 'Lịch hẹn tự động từ Chatbot Agent.',
         'start': {'dateTime': start_time, 'timeZone': 'Asia/Ho_Chi_Minh'},
         'end': {'dateTime': end_time, 'timeZone': 'Asia/Ho_Chi_Minh'},
-        'attendees': [{'email': USER_B}],
+        'attendees': attendees,
         'reminders': {'useDefault': True},
     }
     return service.events().insert(
@@ -96,7 +110,7 @@ def create_event_with_invite(service, start_time, end_time, summary):
 async def api_check_availability(req: BookingRequest):
     try:
         service = get_calendar_service()
-        is_free = check_availability_logic(service, req.start_time, req.end_time)
+        is_free = check_availability_logic(service, req.start_time, req.end_time, req.target_email)
         return {"available": is_free}
     except Exception as e:
         print(f"Lỗi: {e}")
@@ -107,10 +121,10 @@ async def api_check_availability(req: BookingRequest):
 async def api_book_calendar(req: BookingRequest):
     try:
         service = get_calendar_service()
-        if check_availability_logic(service, req.start_time, req.end_time):
-            result = create_event_with_invite(service, req.start_time, req.end_time, req.summary)
-            return {"status": "success", "link": result.get('htmlLink')}
-        return {"status": "failed", "message": "Bận rồi."}
+        if check_availability_logic(service, req.start_time, req.end_time, req.target_email):
+            result = create_event_with_invite(service, req.start_time, req.end_time, req.summary, req.target_email)
+            return {"status": "success", "link": result.get('htmlLink'), "sent": True}
+        return {"status": "failed", "message": "Bận rồi.", "sent": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
