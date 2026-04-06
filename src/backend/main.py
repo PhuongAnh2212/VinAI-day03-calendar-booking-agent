@@ -13,6 +13,8 @@ import sys
 # Load cấu hình từ .env
 load_dotenv()
 USER_B = os.getenv('USER_B_EMAIL')
+if not USER_B:
+    print("Warning: USER_B_EMAIL environment variable is not set!")
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 app = FastAPI(title="Calendar Booking Agent (OAuth Edition)")
@@ -36,13 +38,16 @@ def get_calendar_service():
     # Nếu token hết hạn, tự động refresh
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            with open('token.json', 'w') as token:
-                token.write(creds.to_json())
+            try:
+                creds.refresh(Request())
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
+            except RefreshError:
+                raise Exception("Token đã hết hạn và không thể làm mới. Hãy chạy lại script test_oauth.py")
         else:
             raise Exception("Không tìm thấy token.json hợp lệ. Hãy chạy lại script test_oauth.py")
 
-    return build('calendar', 'vs3', credentials=creds)
+    return build('calendar', 'v3', credentials=creds)
 
 
 def check_availability_logic(service, start_time, end_time):
@@ -55,8 +60,10 @@ def check_availability_logic(service, start_time, end_time):
     res = service.freebusy().query(body=body).execute()
 
     # Kiểm tra nếu bất kỳ ai bận
+    calendars = res.get('calendars', {})
     for user_id in ["primary", USER_B]:
-        if res['calendars'][user_id]['busy']:
+        user_cal = calendars.get(user_id, {})
+        if user_cal.get('busy'):
             return False
     return True
 
@@ -89,8 +96,13 @@ async def api_check_availability(req: BookingRequest):
         service = get_calendar_service()
         is_free = check_availability_logic(service, req.start_time, req.end_time)
         return {"available": is_free}
+    except HttpError as e:
+        print(f"Google API Error in /calendar/check: {e}")
+        raise HTTPException(status_code=e.resp.status, detail=f"Google API Error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @app.post("/calendar/book")
@@ -107,8 +119,13 @@ async def api_book_calendar(req: BookingRequest):
             }
         else:
             return {"status": "failed", "message": "Giờ này đã có người bận."}
+    except HttpError as e:
+        print(f"Google API Error in /calendar/book: {e}")
+        raise HTTPException(status_code=e.resp.status, detail=f"Google API Error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 if __name__ == "__main__":
