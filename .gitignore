@@ -4,3 +4,4 @@ service_account.json
 .DS_Store
 token.json
 node_modules
+credentials.json
