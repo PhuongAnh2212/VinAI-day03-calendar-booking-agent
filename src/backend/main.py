@@ -5,56 +5,69 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google.auth.exceptions import RefreshError
-import sys
 
-# Load cấu hình từ .env
+# Load cấu hình
 load_dotenv()
 USER_B = os.getenv('USER_B_EMAIL')
 SCOPES = ['https://www.googleapis.com/auth/calendar']
+CREDENTIALS_FILE = 'credentials.json'  # File JSON Desktop App từ Google Cloud
 
-app = FastAPI(title="Calendar Booking Agent (OAuth Edition)")
+app = FastAPI(title="Calendar Booking Agent (Auto-Auth)")
 
 
-# Schema dữ liệu cho Request
 class BookingRequest(BaseModel):
-    start_time: str  # Format: "2026-04-06T15:00:00+07:00"
-    end_time: str  # Format: "2026-04-06T16:00:00+07:00"
+    start_time: str
+    end_time: str
     summary: Optional[str] = "Họp đặt bởi AI Agent"
 
 
 # --- CORE LOGIC ---
 
 def get_calendar_service():
-    """Lấy service từ file token.json đã có"""
+    """Lấy service, tự động yêu cầu đăng nhập nếu chưa có token"""
     creds = None
+
+    # 1. Kiểm tra nếu đã có file token cũ
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 
-    # Nếu token hết hạn, tự động refresh
+    # 2. Nếu không có token hoặc token không hợp lệ (hết hạn)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                print("🔄 Đang làm mới token...")
+                creds.refresh(Request())
+            except Exception:
+                # Nếu refresh thất bại (ví dụ: bị thu hồi quyền), xóa file để login lại
+                creds = None
+
+                # 3. Nếu vẫn không có creds hợp lệ -> Bắt đầu luồng đăng nhập trình duyệt
+        if not creds:
+            print("🔑 Không tìm thấy danh tính hợp lệ. Đang mở trình duyệt để đăng nhập...")
+            if not os.path.exists(CREDENTIALS_FILE):
+                raise Exception(f"Thiếu file {CREDENTIALS_FILE}! Hãy tải từ Google Cloud Console.")
+
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+            creds = flow.run_local_server(port=0)  # Mở trình duyệt máy đang chạy code
+
+            # Lưu lại token cho lần sau (máy ai người đó dùng)
             with open('token.json', 'w') as token:
                 token.write(creds.to_json())
-        else:
-            raise Exception("Không tìm thấy token.json hợp lệ. Hãy chạy lại script test_oauth.py")
+                print("✅ Đã lưu danh tính mới vào token.json")
 
-    return build('calendar', 'vs3', credentials=creds)
+    # Lưu ý: Sửa lỗi typo 'vs3' thành 'v3' trong code cũ của bạn
+    return build('calendar', 'v3', credentials=creds)
 
 
 def check_availability_logic(service, start_time, end_time):
-    """Check rảnh bận cho chính bạn (primary) và User B"""
     body = {
         "timeMin": start_time,
         "timeMax": end_time,
         "items": [{"id": "primary"}, {"id": USER_B}]
     }
     res = service.freebusy().query(body=body).execute()
-
-    # Kiểm tra nếu bất kỳ ai bận
     for user_id in ["primary", USER_B]:
         if res['calendars'][user_id]['busy']:
             return False
@@ -62,23 +75,19 @@ def check_availability_logic(service, start_time, end_time):
 
 
 def create_event_with_invite(service, start_time, end_time, summary):
-    """Tạo lịch và mời User B (Sẽ có mail invitation xịn)"""
     event_body = {
         'summary': summary,
         'description': 'Lịch hẹn tự động từ Chatbot Agent.',
         'start': {'dateTime': start_time, 'timeZone': 'Asia/Ho_Chi_Minh'},
         'end': {'dateTime': end_time, 'timeZone': 'Asia/Ho_Chi_Minh'},
-        'attendees': [{'email': USER_B}],  # Mời thoải mái không lo 403
+        'attendees': [{'email': USER_B}],
         'reminders': {'useDefault': True},
     }
-
-    # Tạo trên lịch 'primary' của bạn
-    event = service.events().insert(
+    return service.events().insert(
         calendarId='primary',
         body=event_body,
-        sendUpdates='all'  # Tự động gửi mail mời
+        sendUpdates='all'
     ).execute()
-    return event
 
 
 # --- API ENDPOINTS ---
@@ -90,6 +99,7 @@ async def api_check_availability(req: BookingRequest):
         is_free = check_availability_logic(service, req.start_time, req.end_time)
         return {"available": is_free}
     except Exception as e:
+        print(f"Lỗi: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -97,16 +107,10 @@ async def api_check_availability(req: BookingRequest):
 async def api_book_calendar(req: BookingRequest):
     try:
         service = get_calendar_service()
-        # Bước cuối: Check lại rồi mới chốt
         if check_availability_logic(service, req.start_time, req.end_time):
             result = create_event_with_invite(service, req.start_time, req.end_time, req.summary)
-            return {
-                "status": "success",
-                "link": result.get('htmlLink'),
-                "message": f"Đã gửi thư mời tới {USER_B}"
-            }
-        else:
-            return {"status": "failed", "message": "Giờ này đã có người bận."}
+            return {"status": "success", "link": result.get('htmlLink')}
+        return {"status": "failed", "message": "Bận rồi."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
