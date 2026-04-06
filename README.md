@@ -2,11 +2,11 @@
 
 ## Preview
 
-![UI Preview](VinAI-day03-calendar-booking-agent/report/preview/lab03-preview.png)
+![UI Preview](report/preview/lab03-preview.png)
 
 ## Demo
 
-[Demo video](DRIVE_LINK_HERE)
+[Demo video](https://drive.google.com/file/d/1thNdLr3Nf3GpkkeTPhZpbuhMGTpZXYc6/view?usp=sharing)
 
 ## Requirements
 
