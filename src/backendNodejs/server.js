@@ -3,11 +3,35 @@ const express = require("express");
 const { google } = require("googleapis");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
+const swaggerJsdoc = require("swagger-jsdoc");
+const swaggerUi = require("swagger-ui-express");
 
 const app = express();
 app.use(express.json()); // Middleware to parse JSON bodies
 
 const PORT = process.env.PORT || 3000;
+
+// Swagger definition
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Google Calendar Booking API",
+      version: "1.0.0",
+      description:
+        "API for authenticating with Google and booking meetings on user calendars.",
+    },
+    servers: [
+      {
+        url: `http://localhost:${PORT}`,
+      },
+    ],
+  },
+  apis: ["./server.js"], // Path to the API docs
+};
+
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // ==========================================
 // 1. Database & Schema Setup (MongoDB)
@@ -68,6 +92,16 @@ const SCOPES = [
 // ==========================================
 
 // Generate login link
+/**
+ * @openapi
+ * /auth:
+ *   get:
+ *     summary: Generate Google Login Link
+ *     description: Returns an HTML link that prompts the user to grant permissions to access their Google Calendar.
+ *     responses:
+ *       200:
+ *         description: Success - Returns HTML with the login link.
+ */
 app.get("/auth", (req, res) => {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: "offline",
@@ -80,6 +114,25 @@ app.get("/auth", (req, res) => {
 });
 
 // OAuth Callback
+/**
+ * @openapi
+ * /oauth2callback:
+ *   get:
+ *     summary: OAuth2 Callback
+ *     description: Handles the callback from Google after user authorization, retrieves tokens, and saves them to the database.
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Authorization code from Google.
+ *     responses:
+ *       200:
+ *         description: Success - Token saved securely.
+ *       500:
+ *         description: Server Error - Failed to retrieve tokens.
+ */
 app.get("/oauth2callback", async (req, res) => {
   const { code } = req.query;
   try {
@@ -114,6 +167,53 @@ app.get("/oauth2callback", async (req, res) => {
 // ==========================================
 // 5. Routes: Booking Logic API
 // ==========================================
+/**
+ * @openapi
+ * /book-meeting:
+ *   post:
+ *     summary: Book a meeting
+ *     description: Checks if a user is free during the specified time range and creates a meeting if they are.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - targetEmail
+ *               - startTime
+ *               - endTime
+ *             properties:
+ *               targetEmail:
+ *                 type: string
+ *                 example: "user@example.com"
+ *               startTime:
+ *                 type: string
+ *                 example: "2026-10-01T10:00:00Z"
+ *               endTime:
+ *                 type: string
+ *                 example: "2026-10-01T11:00:00Z"
+ *               meetingName:
+ *                 type: string
+ *                 example: "Project Discussion"
+ *     responses:
+ *       200:
+ *         description: Successfully booked or user is busy.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [ok, "not ok"]
+ *       400:
+ *         description: Missing required fields.
+ *       404:
+ *         description: User not found in database.
+ *       500:
+ *         description: Internal Server Error.
+ */
 app.post("/book-meeting", async (req, res) => {
   const { targetEmail, startTime, endTime, meetingName } = req.body;
 
