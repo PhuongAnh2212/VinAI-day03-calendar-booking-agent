@@ -108,7 +108,46 @@ The **Thought** block provides explicit reasoning steps, helping:
 * Increase transparency
 
 **However**, it does not always improve correctness compared to a simple chatbot.
+---
 
+## V. Additional Reflection (Optional)
+
+During this lab, I learned several important practical lessons beyond just implementing the agent:
+
+- **Data Formatting**:  
+  I realized the importance of strict data standards when working with external APIs.  
+  For example, Google Calendar requires **ISO 8601 format** for date and time.  
+  Incorrect formatting can completely break the system even if the logic is correct.
+
+- **System Integration**:  
+  I gained a clearer understanding of how different components connect:
+  - Frontend (user input)  
+  - Backend (API handling)  
+  - Agent (reasoning + tool selection)  
+  - External services (Google Calendar)  
+
+  Small mismatches (e.g., request/response schema) can cause the entire pipeline to fail.
+
+- **Interface Contract Design**:  
+  One key issue in our project was the **lack of a clearly defined contract** between:
+  - Backend request format (`POST` body)  
+  - Agent input/output structure  
+
+  This led to integration failure at the final stage, even though individual components were working.
+
+- **Time Allocation & Team Coordination**:  
+  As the team leader, I learned that:
+  - It is not enough to assign tasks — **alignment must be enforced early**  
+  - Critical components (like API contracts) must be **validated before final integration**  
+  - Delays in one part of the system can block the entire pipeline  
+
+  Although we were unable to fully demo the system due to incomplete integration, this experience highlighted the importance of:
+  - Early testing between components  
+  - Clear communication and accountability  
+  - Setting concrete deadlines for intermediate results  
+
+**Overall Lesson**:  
+A system can fail not because of complex algorithms, but because of **small inconsistencies in data format, interface design, and team coordination**.
 ### 2. Reliability
 
 The ReAct agent performed **worse** than a chatbot when:
