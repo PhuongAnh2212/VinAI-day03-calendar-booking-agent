@@ -195,6 +195,9 @@ app.get("/oauth2callback", async (req, res) => {
  *                 type: string
  *                 format: date-time
  *                 description: Meeting end time in ISO 8601 format (UTC).
+ *               meetingTitle:
+ *                 type: string
+ *                 description: Title of the meeting.
  *     responses:
  *       200:
  *         description: Success status ("ok" or "not ok").
@@ -214,7 +217,7 @@ app.get("/oauth2callback", async (req, res) => {
  *         description: Internal server error.
  */
 app.post("/book-meeting", async (req, res) => {
-  const { targetEmail, startTime, endTime } = req.body;
+  const { targetEmail, startTime, endTime, meetingTitle } = req.body;
 
   if (!targetEmail || !startTime || !endTime) {
     return res
@@ -271,7 +274,7 @@ app.post("/book-meeting", async (req, res) => {
 
     // 5. If FREE: Create the calendar event
     const event = {
-      summary: "Scheduled Meeting via Agent",
+      summary: meetingTitle || "Scheduled Meeting via Agent",
       description: "Auto-generated meeting.",
       start: { dateTime: startTime },
       end: { dateTime: endTime },
